@@ -210,8 +210,6 @@ int mdp4_dsi_video_on(struct platform_device *pdev)
 
 	mdp4_overlay_rgb_setup(pipe);
 
-	mdp4_mixer_stage_up(pipe);
-
 	mdp4_overlayproc_cfg(pipe);
 
 	/*
@@ -288,6 +286,8 @@ int mdp4_dsi_video_on(struct platform_device *pdev)
 	MDP_OUTP(MDP_BASE + DSI_VIDEO_BASE + 0x30, dsi_hsync_skew);
 	MDP_OUTP(MDP_BASE + DSI_VIDEO_BASE + 0x38, ctrl_polarity);
 	mdp4_overlay_reg_flush(pipe, 1);
+	mdp4_mixer_stage_up(pipe);
+
 	mdp_histogram_ctrl_all(TRUE);
 
 	ret = panel_next_on(pdev);
@@ -397,6 +397,8 @@ void mdp4_dsi_video_3d_sbys(struct msm_fb_data_type *mfd,
 	mdp4_overlay_dmap_xy(pipe);
 
 	mdp4_overlay_dmap_cfg(mfd, 1);
+
+	mdp4_overlay_reg_flush(pipe, 1);
 
 	mdp4_mixer_stage_up(pipe);
 
@@ -740,15 +742,8 @@ void mdp4_dsi_video_overlay(struct msm_fb_data_type *mfd)
 	}
 
 	mdp4_overlay_rgb_setup(pipe);
-#ifndef QCT_HDMI_1080P_PATCH
 	mdp4_overlay_reg_flush(pipe, 0);
-#endif	
 	mdp4_mixer_stage_up(pipe);
-#ifndef QCT_HDMI_1080P_PATCH
-
-#else
-	mdp4_overlay_reg_flush(pipe, 0);
-#endif
 	mdp4_overlay_dsi_video_start();
 	mdp4_overlay_dsi_video_vsync_push(mfd, pipe);
 	mdp4_iommu_unmap(pipe);
