@@ -62,26 +62,12 @@ static int saved_bl_level = 0x7F;
 static int saved_bl_level = 0x33;
 #endif
 static int boot_mode = 1; // first boot condition
-#if defined(CONFIG_MACH_LGE_325_BOARD_DCM)
-#define INIT_IMAGE_FILE "/initlogo_dcm.rle"
-#elif defined(CONFIG_MACH_LGE_325_BOARD_SKT) || defined(CONFIG_MACH_LGE_325_BOARD_LGU)  //SKT, LGU
-#define INIT_IMAGE_FILE "/bootimages/boot_logo_00000.rle"
-#if defined(CONFIG_LGE_SHOW_FB_BOOTLOGO)
-extern unsigned int lge_reset_flag;
-extern unsigned int lge_boot_flag;
-#define NUM_OF_BOOT_LOGO_IMAGES 32
-const char LG_bootlogo_progress[] = "/bootimages/boot_logo_";
-#endif	//LGE_SHOW_FB_BOOTLOGO
-#else	//VZW
-#define INIT_IMAGE_FILE "/bootimages/boot_logo_00000.rle"
-#endif
 #endif
 
 static int unset_bl_level = 0;
 static int bl_updated = 1;
 static int bl_level_old = 0;
 
-extern int load_565rle_image(char *filename);
 #endif
 
 #ifdef CONFIG_FB_MSM_TRIPLE_BUFFER
@@ -91,6 +77,7 @@ extern int load_565rle_image(char *filename);
 static unsigned char *fbram;
 static unsigned char *fbram_phys;
 static int fbram_size;
+static boolean bf_supported;
 
 static struct platform_device *pdev_list[MSM_FB_MAX_DEV_LIST];
 static int pdev_list_cnt;
@@ -460,6 +447,9 @@ static int msm_fb_probe(struct platform_device *pdev)
 #ifdef CONFIG_FB_MSM_OVERLAY
 	mfd->overlay_play_enable = 1;
 #endif
+
+	bf_supported = mdp4_overlay_borderfill_supported();
+
 	rc = msm_fb_register(mfd);
 	if (rc)
 		return rc;
@@ -1321,7 +1311,7 @@ static int msm_fb_register(struct msm_fb_data_type *mfd)
 	 * Only fb0 has mem. fb1 and fb2 don't have mem.
 	 */
 
-	if (mfd->index == 0)
+	if (!bf_supported || mfd->index == 0)
 		fix->smem_len = MAX((msm_fb_line_length(mfd->index,
 							panel_info->xres,
 							bpp) *
@@ -1439,7 +1429,7 @@ static int msm_fb_register(struct msm_fb_data_type *mfd)
 	fbram_phys += fbram_offset;
 	fbram_size -= fbram_offset;
 
-	if (mfd->index == 0)
+	if (!bf_supported || mfd->index == 0)
 		if (fbram_size < fix->smem_len) {
 			pr_err("error: no more framebuffer memory!\n");
 			return -ENOMEM;
@@ -1457,7 +1447,7 @@ static int msm_fb_register(struct msm_fb_data_type *mfd)
 			fbi->fix.smem_start, mfd->map_buffer->iova[0],
 			mfd->map_buffer->iova[1]);
 	}
-	if (mfd->index == 0)
+	if (!bf_supported || mfd->index == 0)
 		memset(fbi->screen_base, 0x0, fix->smem_len);
 
 	mfd->op_enable = TRUE;
@@ -1512,10 +1502,10 @@ static int msm_fb_register(struct msm_fb_data_type *mfd)
 		mdelay(100);
 		msm_fb_set_backlight(mfd, saved_bl_level);
 
-		if (!load_565rle_image(INIT_IMAGE_FILE)) ;	/* Flip buffer */
+		if (!load_565rle_image(INIT_IMAGE_FILE, bf_supported)) ;	/* Flip buffer */
 	}
 #else
-	if (!load_565rle_image(INIT_IMAGE_FILE)) ;	/* Flip buffer */
+	if (!load_565rle_image(INIT_IMAGE_FILE, bf_supported)) ;	/* Flip buffer */
 #endif /*CONFIG_LGE_I_DISP_BOOTLOGO*/
 #endif
 
@@ -1686,9 +1676,10 @@ static int msm_fb_open(struct fb_info *info, int user)
 	}
 
 	if (!mfd->ref_cnt) {
-		if ((info->node != 1) && (info->node != 2)) {
+		if (!bf_supported ||
+			(info->node != 1 && info->node != 2))
 			mdp_set_dma_pan_info(info, NULL, TRUE);
-		} else
+		else
 			pr_debug("%s:%d no mdp_set_dma_pan_info %d\n",
 				__func__, __LINE__, info->node);
 
@@ -1748,7 +1739,7 @@ static int msm_fb_pan_display(struct fb_var_screeninfo *var,
 	/*
 	 * If framebuffer is 2, io pen display is not allowed.
 	 */
-	if (info->node == 2) {
+	if (bf_supported && info->node == 2) {
 		pr_err("%s: no pan display for fb%d!",
 		       __func__, info->node);
 		return -EPERM;
@@ -1928,7 +1919,8 @@ static int msm_fb_check_var(struct fb_var_screeninfo *var, struct fb_info *info)
 	if ((var->xres_virtual <= 0) || (var->yres_virtual <= 0))
 		return -EINVAL;
 
-	if ((info->node != 1) && (info->node != 2))
+	if (!bf_supported ||
+		(info->node != 1 && info->node != 2))
 		if (info->fix.smem_len <
 		    (var->xres_virtual*
 		     var->yres_virtual*
@@ -2786,7 +2778,8 @@ static int msmfb_blit(struct fb_info *info, void __user *p)
 	struct mdp_blit_req_list req_list_header;
 
 	int count, i, req_list_count;
-	if (info->node == 1 || info->node == 2) {
+	if (bf_supported &&
+		(info->node == 1 || info->node == 2)) {
 		pr_err("%s: no pan display for fb%d.",
 		       __func__, info->node);
 		return -EPERM;

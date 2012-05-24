@@ -214,4 +214,25 @@ void unfill_black_screen(void);
 int msm_fb_check_frame_rate(struct msm_fb_data_type *mfd,
 				struct fb_info *info);
 
+#ifdef CONFIG_FB_MSM_LOGO
+#ifdef CONFIG_LGE_I_DISP_BOOTLOGO
+#if defined(CONFIG_MACH_LGE_325_BOARD_DCM)  //DCM
+#define INIT_IMAGE_FILE "/initlogo_dcm.rle"
+#elif defined(CONFIG_MACH_LGE_325_BOARD_SKT) || defined(CONFIG_MACH_LGE_325_BOARD_LGU)  //SKT, LGU
+#define INIT_IMAGE_FILE "/bootimages/boot_logo_00000.rle"
+#if defined(CONFIG_LGE_SHOW_FB_BOOTLOGO)
+extern unsigned int lge_reset_flag;
+extern unsigned int lge_boot_flag;
+#define NUM_OF_BOOT_LOGO_IMAGES 32
+const char LG_bootlogo_progress[] = "/bootimages/boot_logo_";
+#endif	//LGE_SHOW_FB_BOOTLOGO
+#else	//VZW
+#define INIT_IMAGE_FILE "/bootimages/boot_logo_00000.rle"
+#endif //CONFIG_MACH_LGE_325_BOARD_*
+#else
+#define INIT_IMAGE_FILE "/initlogo.rle"
+#endif //CONFIG_LGE_I_DISP_BOOTLOGO
+int load_565rle_image(char *filename, bool bf_supported);
+#endif
+
 #endif /* MSM_FB_H */
