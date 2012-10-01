@@ -205,9 +205,9 @@ static int mipi_hitachi_lcd_on(struct platform_device *pdev)
 		return -EINVAL;
 	local_mfd = mfd;
 	printk(KERN_INFO"%s: mipi hitachi lcd on started \n", __func__);
+	mipi_dsi_mdp_busy_wait(mfd);
 	mipi_hitachi_lcd_reset();
 	//mipi_dsi_op_mode_config(DSI_CMD_MODE);
-	mipi_dsi_mdp_busy_wait(mfd);
 	mipi_dsi_cmds_tx(&hitachi_tx_buf, hitachi_power_on_set, ARRAY_SIZE(hitachi_power_on_set));
 
 	return 0;
