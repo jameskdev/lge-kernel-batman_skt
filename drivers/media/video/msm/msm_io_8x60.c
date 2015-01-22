@@ -73,7 +73,41 @@
 #define	MIPI_PHY_D0_CONTROL_HS_REC_EQ_SHFT				0x1c
 #define	MIPI_PHY_D1_CONTROL_MIPI_CLK_PHY_SHUTDOWNB_SHFT		0x9
 #define	MIPI_PHY_D1_CONTROL_MIPI_DATA_PHY_SHUTDOWNB_SHFT	0x8
-#define	DBG_CSI	0
+#define	DBG_CSI	1
+
+#ifdef DBG_CSI
+#if defined(CONFIG_MACH_LGE_325_BOARD_SKT) || defined(CONFIG_MACH_LGE_325_BOARD_LGU) || defined(CONFIG_MACH_LGE_325_BOARD_DCM)
+#define MIPI_IMASK_ERROR_OCCUR                0xF01FFFC0
+#define MIPI_IMASK_CLK_ULPM_ENTRY             (0x00000001<<0)
+#define MIPI_IMASK_CLK_ULPM_EXIT              (0x00000001<<1)
+#define MIPI_IMASK_DATA_ULPM_ENTRY            (0x00000001<<2)
+#define MIPI_IMASK_DATA_ULPM_EXIT             (0x00000001<<3)
+#define MIPI_IMASK_CLK_START                  (0x00000001<<4)
+#define MIPI_IMASK_CLK_STOP                   (0x00000001<<5)
+#define MIPI_IMASK_ERR_SOT                    (0x00000001<<6)
+#define MIPI_IMASK_ERR_SOT_SYNC               (0x00000001<<7)
+#define MIPI_IMASK_CLK_CTL_ERROR              (0x00000001<<8)
+#define MIPI_IMASK_DATA_CTL_ERROR             (0x00000001<<9)
+#define MIPI_IMASK_CLK_CMM_ERROR              (0x00000001<<10)
+#define MIPI_IMASK_DATA_CMM_ERROR             (0x00000001<<11)
+#define MIPI_IMASK_DL0_SYNC_ERROR             (0x00000001<<12)
+#define MIPI_IMASK_DL1_SYNC_ERROR             (0x00000001<<13)
+#define MIPI_IMASK_DL2_SYNC_ERROR             (0x00000001<<14)
+#define MIPI_IMASK_DL3_SYNC_ERROR             (0x00000001<<15)
+#define MIPI_IMASK_ECC_ERROR                  (0x00000001<<16)
+#define MIPI_IMASK_CRC_ERROR                  (0x00000001<<17)
+#define MIPI_IMASK_FRAME_SYNC_ERROR           (0x00000001<<18)
+#define MIPI_IMASK_ID_ERROR                   (0x00000001<<19)
+#define MIPI_IMASK_EOT_ERROR                  (0x00000001<<20)
+#define MIPI_IMASK_SW_RST_DONE                (0x00000001<<21)
+#define MIPI_IMASK_SHORT_PACKET_CAPTURE_DONE  (0x00000001<<22)
+#define MIPI_IMASK_CAL_DONE                   (0x00000001<<23)
+#define MIPI_IMASK_DL0_FIFO_OVERFLOW          (0x00000001<<28)
+#define MIPI_IMASK_DL1_FIFO_OVERFLOW          (0x00000001<<29)
+#define MIPI_IMASK_DL2_FIFO_OVERFLOW          (0x00000001<<30)
+#define MIPI_IMASK_DL3_FIFO_OVERFLOW          (0x00000001<<31)
+#endif
+#endif
 
 static struct clk *camio_cam_clk;
 static struct clk *camio_vfe_clk;
@@ -92,9 +126,13 @@ static struct clk *camio_vpe_pclk;
 static struct regulator *fs_vfe;
 static struct regulator *fs_ijpeg;
 static struct regulator *fs_vpe;
+// Start LGE_BSP_CAMERA::john.park@lge.com 2011-06-03  separation of camera power
+#if !defined(CONFIG_LGE_CAMERA)
 static struct regulator *ldo15;
 static struct regulator *lvs0;
 static struct regulator *ldo25;
+#endif
+// End LGE_BSP_CAMERA::john.park@lge.com 2011-06-03  separation of camera power
 
 static struct msm_camera_io_ext camio_ext;
 static struct msm_camera_io_clk camio_clk;
@@ -182,6 +220,22 @@ void msm_io_memcpy(void __iomem *dest_addr, void __iomem *src_addr, u32 len)
 
 static void msm_camera_vreg_enable(void)
 {
+//Start to seperate main/vt camera power jisun.shin@lge.com 2011.06.01.
+#ifdef CONFIG_LGE_CAMERA
+	printk("%s: \n", __func__);
+
+	fs_vfe = regulator_get(NULL, "fs_vfe");
+	if (IS_ERR(fs_vfe)) {
+		CDBG("%s: Regulator FS_VFE get failed %ld\n", __func__,
+			PTR_ERR(fs_vfe));
+		fs_vfe = NULL;
+	} else if (regulator_enable(fs_vfe)) {
+		CDBG("%s: Regulator FS_VFE enable failed\n", __func__);
+		regulator_put(fs_vfe);
+	}
+	return;
+	
+#else
 	ldo15 = regulator_get(NULL, "8058_l15");
 	if (IS_ERR(ldo15)) {
 		pr_err("%s: VREG LDO15 get failed\n", __func__);
@@ -246,10 +300,21 @@ ldo15_disable:
 	regulator_disable(ldo15);
 ldo15_put:
 	regulator_put(ldo15);
+#endif
+//End to seperate main/vt camera power jisun.shin@lge.com 2011.06.01.
 }
 
 static void msm_camera_vreg_disable(void)
 {
+//Start to seperate main/vt camera power jisun.shin@lge.com 2011.06.01.
+#ifdef CONFIG_LGE_CAMERA
+	printk("%s: \n", __func__);
+
+	if (fs_vfe) {
+		regulator_disable(fs_vfe);
+		regulator_put(fs_vfe);
+	}
+#else
 	if (ldo15) {
 		regulator_disable(ldo15);
 		regulator_put(ldo15);
@@ -269,6 +334,8 @@ static void msm_camera_vreg_disable(void)
 		regulator_disable(fs_vfe);
 		regulator_put(fs_vfe);
 	}
+#endif
+//End to seperate main/vt camera power jisun.shin@lge.com 2011.06.01.
 }
 
 int msm_camio_clk_enable(enum msm_camio_clk_type clktype)
@@ -463,7 +530,61 @@ static irqreturn_t msm_io_csi_irq(int irq_num, void *data)
 	uint32_t irq = 0;
 	if (csibase != NULL)
 		irq = msm_io_r(csibase + MIPI_INTERRUPT_STATUS);
+// LGE_BSP_CAMERA_S  jungki.kim@lge.com  To Inspect The MIPI Status
+#if 0	// Reduce Kernel Log
+#if defined(CONFIG_MACH_LGE_325_BOARD_SKT) || defined(CONFIG_MACH_LGE_325_BOARD_LGU) || defined(CONFIG_MACH_LGE_325_BOARD_DCM)
+	//pr_err("[CAMERA]: %s MIPI_INTERRUPT_STATUS = 0x%x\n", __func__, irq);
+	if (irq & MIPI_IMASK_ERROR_OCCUR) {
+		pr_err("[CAMERA]: %s MIPI_INTERRUPT_STATUS = 0x%x\n", __func__, irq);
+		if (irq & MIPI_IMASK_ERR_SOT)
+				pr_err("[CAMERA]msm_io_csi_irq: SOT error\n");
+		if (irq & MIPI_IMASK_ERR_SOT_SYNC)
+				pr_err("[CAMERA]msm_io_csi_irq: SOT SYNC error\n");
+		if (irq & MIPI_IMASK_CLK_CTL_ERROR)
+				pr_err("[CAMERA]msm_io_csi_irq: Clock lane ULPM mode sequence or command error\n");
+		if (irq & MIPI_IMASK_DATA_CTL_ERROR)
+				pr_err("[CAMERA]msm_io_csi_irq: Data lane ULPM mode sequence or command error\n");
+		if (irq & MIPI_IMASK_CLK_CMM_ERROR) /* defeatured */
+				pr_err("[CAMERA]msm_io_csi_irq: Common mode error detected by PHY CLK lane\n");
+		if (irq & MIPI_IMASK_DATA_CMM_ERROR) /* defeatured */
+				pr_err("[CAMERA]msm_io_csi_irq: Common mode error detected by PHY data lane\n");
+		if (irq & MIPI_IMASK_DL0_SYNC_ERROR)
+				pr_err("[CAMERA]msm_io_csi_irq: An error occured while synchronizing data " \
+						"from PHY to VFE clock domain on data lane 0\n");
+		if (irq & MIPI_IMASK_DL1_SYNC_ERROR)
+				pr_err("[CAMERA]msm_io_csi_irq: An error occured while synchronizing data " \
+						"from PHY to VFE clock domain on data lane 1\n");
+		if (irq & MIPI_IMASK_DL2_SYNC_ERROR)
+				pr_err("[CAMERA]msm_io_csi_irq: An error occured while synchronizing data " \
+						"from PHY to VFE clock domain on data lane 2\n");
+		if (irq & MIPI_IMASK_DL3_SYNC_ERROR)
+				pr_err("[CAMERA]msm_io_csi_irq: An error occured while synchronizing data " \
+						"from PHY to VFE clock domain on data lane 3\n");
+		if (irq & MIPI_IMASK_ECC_ERROR)
+				pr_err("[CAMERA]msm_io_csi_irq: ECC error\n");
+		if (irq & MIPI_IMASK_CRC_ERROR)
+				pr_err("[CAMERA]msm_io_csi_irq: CRC error\n");
+		if (irq & MIPI_IMASK_FRAME_SYNC_ERROR)
+				pr_err("[CAMERA]msm_io_csi_irq: FS not paired with FE\n");
+		if (irq & MIPI_IMASK_ID_ERROR)
+				pr_err("[CAMERA]msm_io_csi_irq: Long packet ID not defined\n");
+		if (irq & MIPI_IMASK_EOT_ERROR)
+				pr_err("[CAMERA]msm_io_csi_irq: The received data is less than the value indicated by WC\n");
+		if (irq & MIPI_IMASK_DL0_FIFO_OVERFLOW)
+				pr_err("[CAMERA]msm_io_csi_irq: Data lane 0 FIFO overflow\n");
+		if (irq & MIPI_IMASK_DL1_FIFO_OVERFLOW)
+				pr_info("[CAMERA]msm_io_csi_irq: Data lane 1 FIFO overflow\n");
+		if (irq & MIPI_IMASK_DL2_FIFO_OVERFLOW)
+				pr_info("[CAMERA]msm_io_csi_irq: Data lane 2 FIFO overflow\n");
+		if (irq & MIPI_IMASK_DL3_FIFO_OVERFLOW)
+				pr_info("[CAMERA]msm_io_csi_irq: Data lane 3 FIFO overflow\n");
+	}
+#else
 	CDBG("%s MIPI_INTERRUPT_STATUS = 0x%x\n", __func__, irq);
+#endif
+#endif /*DBG_CSI*/
+// LGE_BSP_CAMERA_E  jungki.kim@lge.com  To Inspect The MIPI Status
+
 	if (csibase != NULL)
 		msm_io_w(irq, csibase + MIPI_INTERRUPT_STATUS);
 	return IRQ_HANDLED;
@@ -563,7 +684,7 @@ static void csi_free_irq(void)
 	free_irq(camio_ext.csiirq, 0);
 }
 #else
-static void csi_free_irq(void) { return 0; }
+static void csi_free_irq(void) { return; }
 #endif
 
 int msm_camio_enable(struct platform_device *pdev)
@@ -627,7 +748,9 @@ common_fail:
 static void msm_camio_csi_disable(void)
 {
 	uint32_t val;
-
+#ifdef DBG_CSI
+	int rc = 0;
+#endif
 	val = 0x0;
 	if (csibase != NULL) {
 		CDBG("%s MIPI_PHY_D0_CONTROL2 val=0x%x\n", __func__, val);
@@ -647,6 +770,9 @@ static void msm_camio_csi_disable(void)
 		usleep_range(5000, 6000);
 		msm_io_w(0x0, csibase + MIPI_INTERRUPT_MASK);
 		msm_io_w(0x0, csibase + MIPI_INTERRUPT_STATUS);
+#ifdef DBG_CSI
+		rc = csi_request_irq();
+#endif
 		csi_free_irq();
 		iounmap(csibase);
 		csibase = NULL;
@@ -683,7 +809,17 @@ int msm_camio_sensor_clk_on(struct platform_device *pdev)
 	rc = camdev->camera_gpio_on();
 	if (rc < 0)
 		return rc;
-	return msm_camio_clk_enable(CAMIO_CAM_MCLK_CLK);
+
+	// LGE_UPDATE_S jungki.kim 2012-04-09
+	// for mclk is still alive while front camera working from Gingerbread.
+	if( !strcmp(sinfo->sensor_name,"mt9m114") ) {
+		printk("[CAMERA] %s : %d\n", __func__, __LINE__);
+		return rc;
+	} else {
+		printk("[CAMERA] %s : %d\n", __func__, __LINE__);
+		return msm_camio_clk_enable(CAMIO_CAM_MCLK_CLK);
+	}
+	// LGE_UPDATE_E jungki.kim 2012-04-09
 }
 
 int msm_camio_sensor_clk_off(struct platform_device *pdev)
@@ -692,8 +828,15 @@ int msm_camio_sensor_clk_off(struct platform_device *pdev)
 	struct msm_camera_device_platform_data *camdev = sinfo->pdata;
 	msm_camera_vreg_disable();
 	camdev->camera_gpio_off();
-	return msm_camio_clk_disable(CAMIO_CAM_MCLK_CLK);
-
+	// LGE_BSP_CAMERA_S::jungki.kim@lge.com  2012-04-10  Do not disable MCLK in case a front camera was working
+	if( !strcmp(sinfo->sensor_name,"mt9m114") ) {
+		printk("[CAMERA] %s : %d\n", __func__, __LINE__);
+		return 0;
+	} else {
+		printk("[CAMERA] %s : %d\n", __func__, __LINE__);
+		return msm_camio_clk_disable(CAMIO_CAM_MCLK_CLK);
+	}
+	// LGE_BSP_CAMERA_S::jungki.kim@lge.com  2012-04-10  Do not disable MCLK in case a front camera was working
 }
 
 void msm_camio_vfe_blk_reset(void)

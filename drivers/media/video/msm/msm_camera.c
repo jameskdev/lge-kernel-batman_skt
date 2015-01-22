@@ -238,7 +238,7 @@ static void msm_enqueue_vpe(struct msm_device_queue *queue,
 	struct msm_device_queue *__q = (queue);			\
 	struct msm_queue_cmd *qcmd;				\
 	spin_lock_irqsave(&__q->lock, flags);			\
-	while (!list_empty(&__q->list)) {			\
+	while (!list_empty(&__q->list) && (__q->len > 0)) {			\
 		__q->len--;					\
 		qcmd = list_first_entry(&__q->list,		\
 			struct msm_queue_cmd, member);		\
@@ -2903,8 +2903,12 @@ static long msm_ioctl_config(struct file *filep, unsigned int cmd,
 			ERR_COPY_FROM_USER();
 			rc = -EFAULT;
 		} else
+		#ifdef CONFIG_LGE_FLASH_LM3559 //jisun.shin@lge.com
+			rc = lge_flash_ctrl(pmsm->sync->sdata, &flash_info);
+		#else
 			rc = msm_flash_ctrl(pmsm->sync->sdata, &flash_info);
-
+		#endif
+		
 		break;
 	}
 

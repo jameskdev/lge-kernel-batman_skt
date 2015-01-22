@@ -1140,6 +1140,8 @@ static int sdio_dld_open(struct tty_struct *tty, struct file *file)
 		return status;
 	}
 
+/* LGE_CHANGE_S [bking.moon@lge.com] 2012-05-14, */
+#if 0 /* move the end of this function - related to TD56598 in OFFICAIL_EVENT, Mobile_12 */
 	status = sdio_dld_create_thread();
 	if (status) {
 		sdio_dld_dealloc_local_buffers();
@@ -1147,6 +1149,8 @@ static int sdio_dld_open(struct tty_struct *tty, struct file *file)
 				   "status=%d\n", __func__, status);
 		return status;
 	}
+#endif
+/* LGE_CHANGE_E [bking.moon@lge.com] 2012-05-14 */
 
 	/* init waiting event of the write callback */
 	init_waitqueue_head(&sdio_dld->write_callback_event.wait_event);
@@ -1167,6 +1171,18 @@ static int sdio_dld_open(struct tty_struct *tty, struct file *file)
 	init_timer(&sdio_dld->push_timer);
 	sdio_dld->push_timer.data = (unsigned long) sdio_dld;
 	sdio_dld->push_timer.function = sdio_dld_push_timer_handler;
+
+/* LGE_CHANGE_S [bking.moon@lge.com] 2012-05-14, */
+#if 1 /* move the end of this function - related to TD56598 in OFFICAIL_EVENT, Mobile_12 */
+	status = sdio_dld_create_thread();
+	if (status) {
+		sdio_dld_dealloc_local_buffers();
+		pr_err(MODULE_NAME ": %s, failed in sdio_dld_create_thread()."
+				   "status=%d\n", __func__, status);
+		return status;
+	}
+#endif
+/* LGE_CHANGE_E [bking.moon@lge.com] 2012-05-14 */
 
 	return 0;
 }

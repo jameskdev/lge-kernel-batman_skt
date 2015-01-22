@@ -30,6 +30,10 @@
 
 #define	PM8058_LPG_CTL_REGS		7
 
+#if defined(CONFIG_MACH_LGE_325_BOARD_SKT) || defined(CONFIG_MACH_LGE_325_BOARD_LGU)
+#define CONFIG_PMIC8058_PWRKEY_LED_325
+#endif
+
 /* PMIC8058 LPG/PWM */
 #define	SSBI_REG_ADDR_LPG_CTL_BASE	0x13C
 #define	SSBI_REG_ADDR_LPG_CTL(n)	(SSBI_REG_ADDR_LPG_CTL_BASE + (n))
@@ -146,6 +150,11 @@
 
 #define	PRE_DIVIDE_MIN		PRE_DIVIDE_0
 #define	PRE_DIVIDE_MAX		PRE_DIVIDE_2
+
+#ifdef CONFIG_PMIC8058_PWRKEY_LED_325
+static struct pwm_device *LED_device;
+u8 pwrkey_led_status;
+#endif
 
 static char *clks[NUM_CLOCKS] = {
 	"1K", "32768", "19.2M"
@@ -1021,6 +1030,82 @@ int pm8058_pwm_set_dtest(struct pwm_device *pwm, int enable)
 }
 EXPORT_SYMBOL(pm8058_pwm_set_dtest);
 
+#ifdef CONFIG_PMIC8058_PWRKEY_LED_325
+bool pm8058_pwrkey_led_blink_set(uint led_set)
+{
+	int ret = 0;
+
+	printk(KERN_INFO"[325_LED] pm8058_pwrkey_led_blink_set = %d\n", led_set);
+
+	ret = pm8058_pwm_config_led(LED_device, PM_PWM_LED_0, PM_PWM_CONF_PWM1, 20);
+	if (ret < 0)
+				{
+					printk(KERN_INFO"[325_LED] pm8058_pwm_config_led LED FAIL\n");
+					return 0; //Fail to set LED
+				}
+
+	if(led_set == 0)
+	 {
+		/* Turn off LED */
+		//printk(KERN_INFO"[325_LED] Turn Off Powerkey LED\n");
+		pwrkey_led_status=0;
+
+		ret = pwm_config(LED_device, 0, 300000);
+		if (ret < 0)
+			{
+				printk(KERN_INFO"[325_LED] pwm_config LED FAIL\n");
+				return 0; //Fail to set LED
+			}
+		pwm_disable(LED_device);
+	 }
+	 else if(led_set == 1)
+	 {
+		/* Blinking LED */
+		//printk(KERN_INFO"[325_LED]Blinking   Powerkey LED\n");
+		pwrkey_led_status=1;
+
+		ret = pwm_config(LED_device, 500000, 1000000);
+		if (ret < 0)
+			{
+				printk(KERN_INFO"[325_LED] pwm_config LED FAIL\n");
+				return 0; //Fail to set LED
+			}
+		ret = pwm_enable(LED_device);
+		if (ret < 0)
+			{
+				printk(KERN_INFO"[325_LED] pwm_enable LED FAIL\n");
+				return 0; //Fail to set LED
+			}
+	 }
+	 else if(led_set == 2)
+	 {
+		/* Always ON LED */
+		//printk(KERN_INFO"[325_LED] Turn On Powerkey LED\n");
+		pwrkey_led_status=2;
+
+		ret = pwm_config(LED_device, 10000, 10000);
+		if (ret < 0)
+			{
+				printk(KERN_INFO"[325_LED] pwm_config LED FAIL\n");
+				return 0; //Fail to set LED
+			}
+		ret = pwm_enable(LED_device);
+		if (ret < 0)
+			{
+				printk(KERN_INFO"[325_LED] pwm_enable LED FAIL\n");
+				return 0; //Fail to set LED
+			}
+	 }
+	else{
+		return 0; //Invalid setting value
+	 }
+
+	 return 1; //Success to set LED
+}
+EXPORT_SYMBOL(pm8058_pwrkey_led_blink_set);
+#endif
+
+
 static int __devinit pmic8058_pwm_probe(struct platform_device *pdev)
 {
 	struct pm8058_pwm_chip	*chip;
@@ -1045,6 +1130,15 @@ static int __devinit pmic8058_pwm_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, chip);
 
 	pr_notice("OK\n");
+
+#ifdef  CONFIG_PMIC8058_PWRKEY_LED_325
+	LED_device=pwm_request(4, "LED0");
+	if (LED_device == NULL || IS_ERR(LED_device)) {
+			pr_err("%s pwm_request() failed\n", __func__);
+			LED_device = NULL;
+	}
+#endif
+
 	return 0;
 }
 

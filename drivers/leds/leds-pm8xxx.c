@@ -440,6 +440,11 @@ static int __devinit pm8xxx_led_probe(struct platform_device *pdev)
 		} else {
 			__pm8xxx_led_work(led_dat, LED_OFF);
 		}
+
+	#if defined(CONFIG_MACH_LGE_325_BOARD) //Initial Off for Low battery scenario support.
+				led_lc_set(led_dat, 0);
+	#endif
+
 	}
 
 	platform_set_drvdata(pdev, led);

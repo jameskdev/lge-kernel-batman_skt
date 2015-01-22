@@ -1079,7 +1079,7 @@ config MSM_SMD_DEBUG
 	  between the ARM9 and ARM11
 
 config MSM_SDIO_AL
-	depends on ((ARCH_MSM7X30 || MACH_MSM8X60_FUSN_FFA || MACH_TYPE_MSM8X60_FUSION) && HAS_WAKELOCK)
+	depends on ((MACH_LGE_I_BOARD || MACH_LGE_325_BOARD || MACH_MSM8X60_FUSN_FFA || MACH_TYPE_MSM8X60_FUSION) && HAS_WAKELOCK)
 	default y
 	tristate "SDIO-Abstraction-Layer"
 	help
@@ -2084,12 +2084,18 @@ config MSM_CACHE_DUMP
 	  suspected.
 
 config MSM_DCVS
-	bool "Use MSM DCVS for CPU/GPU Frequency control"
-	depends on MSM_SCM
-	help
-	  Enable support for MSM DCVS to control all CPU and GPU core frequencies.
-	  The DCVS manager allows idle driver to feed the idle information to the
-	  algorithm and the algorithm returns a frequency for the core which is
-	  passed to the frequency change driver.
+        bool "Use MSM DCVS for CPU/GPU Frequency control"
+        depends on MSM_SCM
+        help
+          Enable support for MSM DCVS to control all CPU and GPU core frequencies.
+          The DCVS manager allows idle driver to feed the idle information to the
+          algorithm and the algorithm returns a frequency for the core which is
+          passed to the frequency change driver.
 
+config LGE_SDIO_DEBUG_CH
+        bool "SDIO DEBUG CH driver"
+        depends on MSM_SDIO_AL
+        default n
+        help
+          Support Debug Channels over SDIO interface.
 endif

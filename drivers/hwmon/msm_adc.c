@@ -98,7 +98,11 @@ static bool epm_fluid_enabled;
 /* Needed to support file_op interfaces */
 static struct msm_adc_drv *msm_adc_drv;
 
+#ifdef CONFIG_BATTERY_325
+extern bool conv_first_request;
+#else
 static bool conv_first_request;
+#endif
 
 static ssize_t msm_adc_show_curr(struct device *dev,
 				struct device_attribute *devattr, char *buf);

@@ -14,7 +14,13 @@ extern const char linux_proc_banner[];
 #define KERN_NOTICE	"<5>"	/* normal but significant condition	*/
 #define KERN_INFO	"<6>"	/* informational			*/
 #define KERN_DEBUG	"<7>"	/* debug-level messages			*/
-
+#ifdef CONFIG_MACH_LGE_325_BOARD_VZW
+#ifdef CONFIG_LGE_LOG_SERVICE
+#define KERN_UTC_BOOT   "<B>"   /* bootup tag for log service */
+#define KERN_UTC_WAKEUP "<W>"   /* wakeup tag for log service */
+#define KERN_UTC_START  "<S>"   /* start logging for log service */
+#endif
+#endif
 /* Use the default kernel loglevel */
 #define KERN_DEFAULT	"<d>"
 /*

@@ -692,8 +692,11 @@ int msm_rpc_client_req2(struct msm_rpc_client *client, uint32_t proc,
 		rc = 0;
 
 	if (timeout < 0)
+#if 1 //LG_FW kyuhyung.lee SRD operation needs more time when it supports Global roamming
+		timeout = msecs_to_jiffies(20000);
+#else
 		timeout = msecs_to_jiffies(10000);
-
+#endif
 	do {
 		rc = wait_event_timeout(client->reply_wait,
 			xdr_read_avail(&client->xdr) || client->in_reset,

@@ -69,8 +69,8 @@ enum pm8xxx_batt_alarm_hold_time {
 #define PM8XXX_BATT_ALARM_STATUS_BELOW_LOWER	BIT(0)
 #define PM8XXX_BATT_ALARM_STATUS_ABOVE_UPPER	BIT(1)
 
-#if defined(CONFIG_MFD_PM8XXX_BATT_ALARM) \
-	|| defined(CONFIG_MFD_PM8XXX_BATT_ALARM_MODULE)
+//#if defined(CONFIG_MFD_PM8XXX_BATT_ALARM) || defined(CONFIG_MFD_PM8XXX_BATT_ALARM_MODULE)
+#if 1
 
 /**
  * pm8xxx_batt_alarm_enable - enable one of the battery voltage threshold
@@ -161,6 +161,16 @@ int pm8xxx_batt_alarm_hold_time_set(enum pm8xxx_batt_alarm_hold_time hold_time);
  */
 int pm8xxx_batt_alarm_pwm_rate_set(int use_pwm, int clock_scaler,
 				   int clock_divider);
+
+#ifdef CONFIG_LGE_PM_BATTERY_ALARM
+int pm8xxx_batt_alarm_config_lge(void);
+#endif
+
+#ifdef CONFIG_BATTERY_325
+int pm8xxx_batt_alarm_config_lge_325(bool enable);
+#endif
+
+
 #else
 
 static inline int

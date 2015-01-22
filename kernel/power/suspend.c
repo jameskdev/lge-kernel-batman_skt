@@ -25,6 +25,12 @@
 #include <linux/syscore_ops.h>
 #include <trace/events/power.h>
 
+#ifdef CONFIG_MACH_LGE_325_BOARD_VZW
+#ifdef CONFIG_LGE_LOG_SERVICE
+#include <linux/rtc.h>
+#endif
+#endif
+
 #include "power.h"
 
 const char *const pm_states[PM_SUSPEND_MAX] = {
@@ -35,6 +41,11 @@ const char *const pm_states[PM_SUSPEND_MAX] = {
 	[PM_SUSPEND_MEM]	= "mem",
 };
 
+#ifdef CONFIG_MACH_LGE_325_BOARD_VZW
+#ifdef CONFIG_LGE_LOG_SERVICE
+static int sleep_enter = 0;
+#endif
+#endif
 static const struct platform_suspend_ops *suspend_ops;
 
 /**
@@ -173,6 +184,11 @@ static int suspend_enter(suspend_state_t state)
 			events_check_enabled = false;
 		}
 		syscore_resume();
+#ifdef CONFIG_MACH_LGE_325_BOARD_VZW
+#ifdef CONFIG_LGE_LOG_SERVICE
+        sleep_enter = 1;
+#endif
+#endif
 	}
 
 	arch_suspend_enable_irqs();
@@ -228,6 +244,21 @@ int suspend_devices_and_enter(suspend_state_t state)
  Resume_devices:
 	suspend_test_start();
 	dpm_resume_end(PMSG_RESUME);
+#ifdef CONFIG_MACH_LGE_325_BOARD_VZW
+#ifdef CONFIG_LGE_LOG_SERVICE
+    if(sleep_enter == 1){
+	    struct timespec ts;
+	    struct rtc_time tm;
+	    getnstimeofday(&ts);
+	    rtc_time_to_tm(ts.tv_sec, &tm);
+	    printk(KERN_UTC_WAKEUP "%d-%02d-%02d %02d:%02d:%02d.%06lu\n",
+	                    tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
+	                    tm.tm_hour, tm.tm_min, tm.tm_sec, ts.tv_nsec/1000);
+	    sleep_enter = 0;
+	}
+#endif
+#endif
+
 	suspend_test_finish("resume devices");
 	resume_console();
  Close:

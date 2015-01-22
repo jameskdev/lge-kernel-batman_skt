@@ -43,6 +43,9 @@
 #endif
 #include "mipi_dsi.h"
 
+// lcd black out workaround
+#undef CONFIG_HAS_EARLYSUSPEND
+
 uint32 mdp4_extn_disp;
 
 static struct clk *mdp_clk;
@@ -144,7 +147,8 @@ static u32 mdp_irq;
 
 static uint32 mdp_prim_panel_type = NO_PANEL;
 #ifndef CONFIG_FB_MSM_MDP22
-
+#define LGE_FORCE_GC_LUT
+extern int g_kcal[6];//KCAL for 325
 struct list_head mdp_hist_lut_list;
 DEFINE_MUTEX(mdp_hist_lut_list_mutex);
 
@@ -460,22 +464,149 @@ error:
 
 DEFINE_MUTEX(mdp_lut_push_sem);
 static int mdp_lut_i;
+
+#ifdef LGE_FORCE_GC_LUT
+extern int g_qlut_change_by_kernel;
+
+static const uint32 const lge_gc_lut[] = {	 /* non linear */
+    0x00000000,0x00010101,0x00030303,0x00040404,
+    0x00060506,0x00070607,0x00090809,0x000A090A,
+    0x000B0A0C,0x000D0B0D,0x000E0C0E,0x000F0D10,
+    0x00100F11,0x00121012,0x00131113,0x00141215,
+    0x00151316,0x00161417,0x00171518,0x00181619,
+    0x0019161A,0x001A171B,0x001B181C,0x001C191D,
+    0x001D1A1E,0x001E1A1F,0x001F1B20,0x001F1C20,
+    0x00201D21,0x00211D22,0x00221E23,0x00231F24,
+    0x00242025,0x00252026,0x00262127,0x00272228,
+    0x00282329,0x0029242A,0x002A252B,0x002B262C,
+    0x002C272D,0x002D282E,0x002E292F,0x002F2930,
+    0x00302A31,0x00312B32,0x00322C33,0x00332D34,
+    0x00342E35,0x00352F36,0x00363037,0x00373038,
+    0x00383139,0x0038323A,0x0039333B,0x003A343C,
+    0x003B353D,0x003C353E,0x003D363F,0x003E3740,
+    0x003F3841,0x00403942,0x00413A43,0x00423A44,
+    0x00433B45,0x00443C46,0x00453D47,0x00463E48,
+    0x00473F4A,0x0049404B,0x004A414C,0x004B424D,
+    0x004C434E,0x004D444F,0x004E4550,0x004F4652,
+    0x00504753,0x00514854,0x00524955,0x00544A56,
+    0x00554B57,0x00564C58,0x00574D59,0x00584E5B,
+    0x00594F5C,0x005A505D,0x005B515E,0x005C525F,
+    0x005D5360,0x005E5461,0x005F5462,0x00605563,
+    0x00615664,0x00625765,0x00635866,0x00645967,
+    0x00655A68,0x00665B6A,0x00675C6B,0x00685C6C,
+    0x00695D6D,0x006A5E6E,0x006B5F6F,0x006C6070,
+    0x006D6171,0x006E6272,0x006F6272,0x00706373,
+    0x00716474,0x00726575,0x00736676,0x00746777,
+    0x00756778,0x00766879,0x0076697A,0x00776A7B,
+    0x00786B7C,0x00796B7D,0x007A6C7E,0x007B6D7F,
+    0x007C6E80,0x007D6F81,0x007E6F81,0x007E7082,
+    0x007F7183,0x00807284,0x00817285,0x00827386,
+    0x00837487,0x00847588,0x00857689,0x0086778A,
+    0x0087788B,0x0088798D,0x00897A8E,0x008B7B8F,
+    0x008C7C90,0x008D7D91,0x008E7E92,0x008F7F93,
+    0x00908094,0x00918195,0x00928297,0x00938298,
+    0x00948399,0x0095849A,0x0096859B,0x0097869C,
+    0x0098879D,0x0099889E,0x009A899F,0x009B8AA0,
+    0x009C8AA1,0x009D8BA2,0x009E8CA3,0x009F8DA4,
+    0x00A08EA5,0x00A18FA6,0x00A290A7,0x00A391A8,
+    0x00A491A9,0x00A592AA,0x00A693AB,0x00A794AC,
+    0x00A895AD,0x00A996AE,0x00AA97AF,0x00AB98B0,
+    0x00AC99B1,0x00AD99B2,0x00AE9AB3,0x00AF9BB4,
+    0x00B09CB5,0x00B19DB6,0x00B29EB8,0x00B39FB9,
+    0x00B4A0BA,0x00B5A0BB,0x00B6A1BC,0x00B7A2BD,
+    0x00B8A3BE,0x00B9A4BF,0x00BAA5C0,0x00BBA6C1,
+    0x00BCA7C2,0x00BDA8C3,0x00BEA8C4,0x00BFA9C5,
+    0x00C0AAC6,0x00C1ABC7,0x00C2ACC8,0x00C3ADC9,
+    0x00C4AECA,0x00C5AECB,0x00C6AFCC,0x00C7B0CD,
+    0x00C8B1CE,0x00C9B2CF,0x00CAB3D0,0x00CAB3D1,
+    0x00CBB4D2,0x00CCB5D3,0x00CDB6D4,0x00CEB7D5,
+    0x00CFB8D5,0x00D0B8D6,0x00D1B9D7,0x00D2BAD8,
+    0x00D3BBD9,0x00D4BCDA,0x00D4BCDB,0x00D5BDDC,
+    0x00D6BEDD,0x00D7BFDE,0x00D8BFDF,0x00D9C0DF,
+    0x00DAC1E0,0x00DAC2E1,0x00DBC2E2,0x00DCC3E3,
+    0x00DDC4E4,0x00DEC5E5,0x00DFC5E5,0x00DFC6E6,
+    0x00E0C7E7,0x00E1C8E8,0x00E2C8E9,0x00E3C9EA,
+    0x00E4CAEB,0x00E5CBEC,0x00E5CBED,0x00E6CCED,
+    0x00E7CDEE,0x00E8CEEF,0x00E9CEF0,0x00EACFF1,
+    0x00EAD0F2,0x00EBD1F2,0x00ECD1F3,0x00EDD2F4,
+    0x00EDD3F5,0x00EED3F6,0x00EFD4F6,0x00F0D4F7,
+    0x00F0D5F8,0x00F1D6F8,0x00F2D6F9,0x00F2D7FA,
+    0x00F3D7FA,0x00F4D8FB,0x00F4D9FC,0x00F5D9FC,
+    0x00F5DAFD,0x00F6DAFE,0x00F7DBFE,0x00F7DBFF,
+};
+#endif //LGE_FORCE_GC_LUT
+
+static uint32 cal_buf[256] = {0,};
+static uint32 lut_buf[256] = {0,};
 static int mdp_lut_hw_update(struct fb_cmap *cmap)
 {
-	int i;
+	int i,j;
 	u16 *c[3];
-	u16 r, g, b;
+	uint32 r, g, b;
+#ifdef LGE_FORCE_GC_LUT
+	uint32 cal_R, cal_G, cal_B;
+	uint32 sign_0, sign_1, sign_2;
+	uint32 gain_R,gain_G,gain_B;
+#endif
 
 	c[0] = cmap->green;
 	c[1] = cmap->blue;
 	c[2] = cmap->red;
+#ifdef LGE_FORCE_GC_LUT
+	printk("### mdp_lut_hw_updae++: mdp_lut_i = %d\n", mdp_lut_i);
+
+	for(j=0;j<6;j++)
+	{
+		printk("###mdp_lut_hw_updae g_kcal %d\n",  g_kcal[j]);
+	}
+
+	cal_R = g_kcal[0]; cal_G = g_kcal[1]; cal_B = g_kcal[2];
+	sign_0 = g_kcal[3]; sign_1 = g_kcal[4]; sign_2 = g_kcal[5];
+
+	if( (sign_0 == 0) && (sign_1 == 111) && (sign_2 = 222)){
+		gain_R = (uint32)((cal_R * 100000)/255);
+		gain_G = (uint32)((cal_G * 100000)/255);
+		gain_B = (uint32)((cal_B * 100000)/255);
+
+		printk("#### Sign is Matched %d,%d,%d Gain RGB : %d,%d,%d\n",sign_0,sign_1,sign_2,gain_R,gain_G,gain_B);
+	}
+	else{
+		printk("#### Sign is not Matched %d,%d,%d\n",sign_0,sign_1,sign_2);
+		gain_R = gain_G = gain_B = 100000;
+	}
+#endif
+	printk ("ch.han!!!!!!g_qlut_change_by_kernel=%d\n",g_qlut_change_by_kernel);
 
 	for (i = 0; i < cmap->len; i++) {
-		if (copy_from_user(&r, cmap->red++, sizeof(r)) ||
-		    copy_from_user(&g, cmap->green++, sizeof(g)) ||
-		    copy_from_user(&b, cmap->blue++, sizeof(b)))
-			return -EFAULT;
+#ifdef LGE_FORCE_GC_LUT
+		if(g_qlut_change_by_kernel) {
+			r = lge_gc_lut[i];
+			g = lge_gc_lut[i];
+			b = lge_gc_lut[i];
+			cal_R = (uint32)((((r & 0xff0000) >> 16)  * gain_R) /100000);
+			cal_G = (uint32)((((g & 0xff00) >> 8)  * gain_G) /100000);
+			cal_B = (uint32)(((b & 0xff) * gain_B) /100000);
 
+            cal_buf[i] = ((cal_G & 0xff) | ((cal_B & 0xff) << 8) | ((cal_R) << 16));
+        } else
+#endif
+            if (copy_from_user(&r, cmap->red++, sizeof(r)) ||
+                copy_from_user(&g, cmap->green++, sizeof(g)) ||
+                copy_from_user(&b, cmap->blue++, sizeof(b)))
+                return -EFAULT;
+
+		if(g_qlut_change_by_kernel) {
+#ifdef CONFIG_FB_MSM_MDP40
+		MDP_OUTP(MDP_BASE + 0x94800 +
+#else
+		MDP_OUTP(MDP_BASE + 0x93800 +
+#endif
+			(0x400*mdp_lut_i) + i*4,
+				((cal_G & 0xff) |
+				 ((cal_B & 0xff) << 8) |
+				 ((cal_R) << 16)));
+		}
+		else {
 #ifdef CONFIG_FB_MSM_MDP40
 		MDP_OUTP(MDP_BASE + 0x94800 +
 #else
@@ -485,8 +616,33 @@ static int mdp_lut_hw_update(struct fb_cmap *cmap)
 				((g & 0xff) |
 				 ((b & 0xff) << 8) |
 				 ((r & 0xff) << 16)));
+		}
 	}
 
+    // mdp_lut_value validation check routine
+    for(i=0; i<256; i++) {
+#ifdef CONFIG_FB_MSM_MDP40
+		lut_buf[i] = inpdw(MDP_BASE + 0x94800 + 
+#else
+		lut_buf[i] = inpdw(MDP_BASE + 0x93800 + 
+#endif
+        (0x400*mdp_lut_i)+ (4*i)); 
+    }
+
+    if(g_qlut_change_by_kernel) {
+        if( memcmp(lut_buf, cal_buf, sizeof(uint32)*256)!=0) {
+            printk("#### Not matched applied cal values !!\n");
+            for(j=0; j<256; j++) {
+                printk("#### mdp_lut_buffer[%d] %8x", j, lut_buf[j]);
+            }
+            printk("#### LUT sanity check failed..reapply LUT\n");
+            return 1;
+        } else {
+            printk("#### LUT sanity check passed!!\n");
+        }
+    }
+
+	printk("#### Cal value R=%d G=%d B=%d\n",cal_R,cal_G,cal_B);
 	return 0;
 }
 
@@ -517,14 +673,23 @@ static int mdp_lut_update_lcdc(struct fb_info *info, struct fb_cmap *cmap)
 {
 	int ret;
 	uint32_t out;
+    int i;
 
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
 	ret = mdp_lut_hw_update(cmap);
 
 	if (ret) {
-		mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
-		return ret;
-	}
+        i=0;
+        while( true ) {
+            if( !mdp_lut_hw_update(cmap) ) {
+                break;
+            }
+            if( (i++)==3 ) {
+                mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
+                return ret;
+            }
+        }
+    }
 
 	/*mask off non LUT select bits*/
 	out = inpdw(MDP_BASE + 0x90070) & ~((0x1 << 10) | 0x7);
@@ -2109,6 +2274,55 @@ static int mdp_irq_clk_setup(char cont_splashScreen)
 	return 0;
 }
 
+//[START]kcal for 325
+int mdp_write_kcal_reg(const char* buf)
+{
+	int i;
+	uint32 cal_R, cal_G, cal_B;
+	uint32 gain_R, gain_G, gain_B;
+	uint32 r, g, b;
+
+	cal_R = buf[0];
+	cal_G = buf[1];
+	cal_B = buf[2];
+
+
+	gain_R = (uint32)((cal_R * 100000)/255);
+	gain_G = (uint32)((cal_G * 100000)/255);
+	gain_B = (uint32)((cal_B * 100000)/255);
+
+	printk("#########mdp_write_kcal color : R=%d, G=%d, B=%d AND gain : R=%d, G=%d, B=%d\n###########",cal_R,cal_G,cal_B,gain_R,gain_G,gain_B);
+	printk("#### mdp_lut_init_update_lcdc++: mdp_lut_i = %d\n", mdp_lut_i);
+	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
+
+	for (i = 0; i < 256; i++) {
+		r = lge_gc_lut[i];
+		g = lge_gc_lut[i];
+		b = lge_gc_lut[i];
+
+		cal_R = (uint32)((((r & 0xff0000) >> 16)  * gain_R) /100000);
+		cal_G = (uint32)((((g & 0xff00) >> 8)  * gain_G) /100000);
+		cal_B = (uint32)(((b & 0xff) * gain_B) /100000);
+#ifdef CONFIG_FB_MSM_MDP40
+		MDP_OUTP(MDP_BASE + 0x94800 +
+#else
+		MDP_OUTP(MDP_BASE + 0x93800 +
+#endif
+			(0x400*mdp_lut_i) + i*4,
+				((cal_G & 0xff) |
+				 ((cal_B & 0xff) << 8) |
+				 (cal_R << 16)));
+	}
+
+	MDP_OUTP(MDP_BASE + 0x90070, (mdp_lut_i << 10) | 0x17);
+	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
+
+	mdp_lut_i = (mdp_lut_i + 1)%2;
+
+	return 1;
+}
+EXPORT_SYMBOL(mdp_write_kcal_reg);
+//[END]kcal for 325
 static int mdp_probe(struct platform_device *pdev)
 {
 	struct platform_device *msm_fb_dev = NULL;
@@ -2486,6 +2700,10 @@ static int mdp_probe(struct platform_device *pdev)
 
 #endif
 
+#if 0
+	printk("### call the initial lut update routine\n");
+	mdp_lut_init_update_lcdc();
+#endif
 	/* set driver data */
 	platform_set_drvdata(msm_fb_dev, mfd);
 

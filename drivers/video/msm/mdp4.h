@@ -238,6 +238,9 @@ enum {
 #define MDP4_OP_SCALEY_EN	BIT(1)
 #define MDP4_OP_SCALEX_EN	BIT(0)
 
+#define MDP4_REV40_UP_SCALING_MAX (8)
+#define MDP4_REV41_OR_LATER_UP_SCALING_MAX (20)
+
 #define MDP4_PIPE_PER_MIXER	2
 
 #define MDP4_MAX_PLANE		4
@@ -507,7 +510,7 @@ void mdp4_overlay0_done_mddi(struct mdp_dma_data *dma);
 void mdp4_dma_s_done_mddi(void);
 void mdp4_dma_p_done_mddi(void);
 void mdp4_dma_p_done_dsi(struct mdp_dma_data *dma);
-void mdp4_dma_p_done_dsi_video(void);
+void mdp4_dma_p_done_dsi_video(struct mdp_dma_data *dma);
 void mdp4_dma_p_done_lcdc(void);
 void mdp4_overlay1_done_dtv(void);
 void mdp4_overlay1_done_atv(void);

@@ -32,6 +32,10 @@
 #include "msm_fb.h"
 #include "mdp4.h"
 
+// lcd black out workaround
+#define MDP4_ERROR
+extern int dma_tx_timeout;
+
 struct mdp4_statistic mdp4_stat;
 
 unsigned is_mdp4_hw_reset(void)
@@ -44,6 +48,10 @@ unsigned is_mdp4_hw_reset(void)
 		hw_reset = !inpdw(MDP_BASE + 0x003c);
 		mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
 	}
+
+	// lcd black out workaround
+	if(dma_tx_timeout)
+		hw_reset = 1;
 
 	return hw_reset;
 }
@@ -256,7 +264,13 @@ void mdp4_hw_init(void)
 	 * on LCDC mode. However DMA_P does not stall at MDDI mode.
 	 * This need further investigation.
 	 */
-	mdp4_sw_reset(0x17);
+
+//lcd blackout workaround
+	if(dma_tx_timeout){
+		mdp4_sw_reset(0x17);
+		dma_tx_timeout = 0;
+	}		
+	//mdp4_sw_reset(0x17);
 #endif
 
 	if (mdp_rev > MDP_REV_41) {
@@ -514,7 +528,7 @@ irqreturn_t mdp4_isr(int irq, void *ptr)
 			mdp_intr_mask &= ~INTR_DMA_P_DONE;
 			outp32(MDP_INTR_ENABLE, mdp_intr_mask);
 			dma->waiting = FALSE;
-			mdp4_dma_p_done_dsi_video();
+			mdp4_dma_p_done_dsi_video(dma);
 			spin_unlock(&mdp_spin_lock);
 		} else if (panel & MDP4_PANEL_DSI_CMD) {
 			mdp4_dma_p_done_dsi(dma);

@@ -721,11 +721,29 @@ static int get_string(struct usb_composite_dev *cdev,
 	 * table we're told about.  These lookups are infrequent;
 	 * simpler-is-better here.
 	 */
+#ifndef CONFIG_MACH_LGE_325_BOARD_DCM
 	if (composite->strings) {
 		len = lookup_string(composite->strings, buf, language, id);
 		if (len > 0)
 			return len;
 	}
+#else /* MSE-ADD-S iC Data Transfer */
+        if (composite->strings) {
+                len = lookup_string(composite->strings, buf, language, id);
+                if (len > 0) {
+                        return len;
+                } else {
+                        if(language == 0) {
+                                language = 0x0409;
+                                len = lookup_string(composite->strings, buf, language, id);
+                        }
+
+                        if (len > 0) {
+                                return len;
+                        }
+                }
+        }
+#endif /* MSE-ADD-E iC Data Traqnsfer */
 	list_for_each_entry(c, &cdev->configs, list) {
 		if (c->strings) {
 			len = lookup_string(c->strings, buf, language, id);
@@ -871,6 +889,9 @@ composite_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
 	req->complete = composite_setup_complete;
 	req->length = 0;
 	gadget->ep0->driver_data = cdev;
+
+	pr_debug("[BSP-USB][%s] bRequest:0x%x bRequestType:0x%x w_value:0x%x w_index:0x%x\n",
+		__func__, ctrl->bRequest, ctrl->bRequestType, w_value>>8, w_index);
 
 	switch (ctrl->bRequest) {
 

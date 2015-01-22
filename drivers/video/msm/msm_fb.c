@@ -48,8 +48,39 @@
 #include "mdp.h"
 #include "mdp4.h"
 
+#ifdef CONFIG_LGE_DISPLAY_MIPI_HITACHI_VIDEO_HD_PT
+extern int mdp_write_kcal_reg(const char* buf); //kcal for 325
+extern int lge_set_qlut(void);
+int g_qlut_change_by_kernel;
+EXPORT_SYMBOL(g_qlut_change_by_kernel);
+#endif
 #ifdef CONFIG_FB_MSM_LOGO
-#define INIT_IMAGE_FILE "/initlogo.rle"
+#ifdef CONFIG_LGE_I_DISP_BOOTLOGO
+#ifdef CONFIG_LGE_DISPLAY_MIPI_HITACHI_VIDEO_HD_PT
+static int saved_bl_level = 0x7F;
+#else
+static int saved_bl_level = 0x33;
+#endif
+static int boot_mode = 1; // first boot condition
+#if defined(CONFIG_MACH_LGE_325_BOARD_DCM)
+#define INIT_IMAGE_FILE "/initlogo_dcm.rle"
+#elif defined(CONFIG_MACH_LGE_325_BOARD_SKT) || defined(CONFIG_MACH_LGE_325_BOARD_LGU)  //SKT, LGU
+#define INIT_IMAGE_FILE "/bootimages/boot_logo_00000.rle"
+#if defined(CONFIG_LGE_SHOW_FB_BOOTLOGO)
+extern unsigned int lge_reset_flag;
+extern unsigned int lge_boot_flag;
+#define NUM_OF_BOOT_LOGO_IMAGES 32
+const char LG_bootlogo_progress[] = "/bootimages/boot_logo_";
+#endif	//LGE_SHOW_FB_BOOTLOGO
+#else	//VZW
+#define INIT_IMAGE_FILE "/bootimages/boot_logo_00000.rle"
+#endif
+#endif
+
+static int unset_bl_level = 0;
+static int bl_updated = 1;
+static int bl_level_old = 0;
+
 extern int load_565rle_image(char *filename);
 #endif
 
@@ -177,6 +208,11 @@ static void msm_fb_set_bl_brightness(struct led_classdev *led_cdev,
 
 	if (!bl_lvl && value)
 		bl_lvl = 1;
+
+#ifdef CONFIG_LGE_I_DISP_BOOTLOGO
+	if(bl_lvl) 
+		saved_bl_level = bl_lvl;	
+#endif
 
 	msm_fb_set_backlight(mfd, bl_lvl);
 }
@@ -318,6 +354,55 @@ static void msm_fb_remove_sysfs(struct platform_device *pdev)
 	sysfs_remove_group(&mfd->fbi->dev->kobj, &msm_fb_attr_group);
 }
 
+#if defined(CONFIG_LGE_DISPLAY_MIPI_LGIT_VIDEO_HD_PT) || defined(CONFIG_LGE_DISPLAY_MIPI_HITACHI_VIDEO_HD_PT)
+static struct msm_fb_data_type *local_mfd;
+ssize_t msm_fb_lgit_lcd_show_onoff(struct device *dev,  struct device_attribute *attr, char *buf)
+{
+	printk("%s : strat\n", __func__);
+	return sprintf(buf, "%d\n", local_mfd->panel_power_on);
+	
+}
+
+ssize_t msm_fb_lgit_lcd_store_onoff(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
+{
+	int onoff;	
+
+	sscanf(buf, "%d", &onoff);
+	
+	local_mfd->op_enable = 1;
+	
+	if(onoff ) {
+		msm_fb_blank_sub(FB_BLANK_UNBLANK, local_mfd->fbi,
+				      local_mfd->op_enable);		
+		mdelay(100);
+		msm_fb_set_backlight(local_mfd, saved_bl_level);
+		printk("%s: buf %s, lcd on : %d, backlight level = %d \n", __func__,buf, onoff, saved_bl_level);
+	}
+	else {
+		msm_fb_set_backlight(local_mfd, 0);
+		msm_fb_blank_sub(FB_BLANK_POWERDOWN, local_mfd->fbi,
+				      local_mfd->op_enable);
+		printk("%s: buf %s, lcd off : %d\n", __func__,buf, onoff);
+	}
+	
+	return count;
+}
+
+DEVICE_ATTR(msm_fb_lcd_onoff, 0644, msm_fb_lgit_lcd_show_onoff, msm_fb_lgit_lcd_store_onoff);
+//[START]kcal for 325
+static ssize_t mdp_write_kcal(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
+{
+	int result;
+
+	result = mdp_write_kcal_reg(buf);
+	printk("#### mdp_write_kcal Out : the result=%d  count=%d ####\n",result, count);
+
+	return count;
+}
+static DEVICE_ATTR(mdp_kcal,0660,NULL,mdp_write_kcal);
+//[END]kcal for 325
+#endif
+
 static int msm_fb_probe(struct platform_device *pdev)
 {
 	struct msm_fb_data_type *mfd;
@@ -384,6 +469,17 @@ static int msm_fb_probe(struct platform_device *pdev)
 
 	pdev_list[pdev_list_cnt++] = pdev;
 	msm_fb_create_sysfs(pdev);
+
+#ifdef CONFIG_LGE_I_DISP_BOOTLOGO
+	if(mfd->index == 0)
+		err = device_create_file(&pdev->dev, &dev_attr_msm_fb_lcd_onoff);
+#endif
+	if(err !=0)
+		printk("%s: could not create lcd_onoff file\n",__func__ );
+
+	err = device_create_file(&pdev->dev, &dev_attr_mdp_kcal);//kcal for 325
+	if(err != 0)
+		printk("%s: could not create kcal file\n",__func__ );
 	return 0;
 }
 
@@ -708,9 +804,6 @@ static void msmfb_early_resume(struct early_suspend *h)
 }
 #endif
 
-static int unset_bl_level, bl_updated;
-static int bl_level_old;
-
 void msm_fb_set_backlight(struct msm_fb_data_type *mfd, __u32 bkl_lvl)
 {
 	struct msm_fb_panel_data *pdata;
@@ -782,12 +875,10 @@ static int msm_fb_blank_sub(int blank_mode, struct fb_info *info,
 	default:
 		if (mfd->panel_power_on) {
 			int curr_pwr_state;
-
 			mfd->op_enable = FALSE;
 			curr_pwr_state = mfd->panel_power_on;
 			mfd->panel_power_on = FALSE;
 			bl_updated = 0;
-
 			msleep(16);
 			ret = pdata->off(mfd->pdev);
 			if (ret)
@@ -970,6 +1061,46 @@ static __u32 msm_fb_line_length(__u32 fb_index, __u32 xres, int bpp)
 		return xres * bpp;
 }
 
+#if defined(CONFIG_LGE_SHOW_FB_BOOTLOGO)
+static void boot_logo_animate_work(struct work_struct *work);
+DECLARE_DELAYED_WORK(boot_logo_work_struct, boot_logo_animate_work);
+static void boot_logo_animate_work(struct work_struct *work)
+{
+	int frame_index = 0;
+	char image_name[255];
+	unsigned int update_image = 0;
+
+	for(frame_index = 0 ; frame_index < NUM_OF_BOOT_LOGO_IMAGES; frame_index++) {
+		/*
+		frame 0 ~ frame 6 : all same images, no need to display
+		frame 29 ~ frame 31 : all same images, no need to display
+		This will reduce the size of ramdisk.img by approximately 40 KB
+		*/
+		
+		if ((frame_index >= 0) && (frame_index <= 6)) {
+			update_image = 0;
+		}
+		else if ((frame_index >= 29) && (frame_index <= 31)) {
+			if (frame_index == 29) {
+				update_image = 1;
+				snprintf(image_name, sizeof(image_name), "%s%5.5d.rle", LG_bootlogo_progress, 29);
+			}
+			else
+				update_image = 0;
+		}
+		else {
+			update_image = 1;
+			snprintf(image_name, sizeof(image_name), "%s%5.5d.rle", LG_bootlogo_progress, frame_index);
+		}
+		
+		if (update_image)
+			load_565rle_image(image_name);
+
+		msleep(83);
+	}
+}
+#endif
+
 static int msm_fb_register(struct msm_fb_data_type *mfd)
 {
 	int ret = -ENODEV;
@@ -999,8 +1130,14 @@ static int msm_fb_register(struct msm_fb_data_type *mfd)
 	var->grayscale = 0,	/* No graylevels */
 	var->nonstd = 0,	/* standard pixel format */
 	var->activate = FB_ACTIVATE_VBL,	/* activate it at vsync */
+// set LCD physical size to view IME properly
+#ifdef CONFIG_LGE_I_DISP_PHYSIZE
+	var->height = 101; //325 lcd size
+	var->width = 76; //325 lcd size
+#else
 	var->height = -1,	/* height of picture in mm */
 	var->width = -1,	/* width of picture in mm */
+#endif
 	var->accel_flags = 0,	/* acceleration flags */
 	var->sync = 0,	/* see FB_SYNC_* */
 	var->rotate = 0,	/* angle we rotate counter clockwise */
@@ -1256,9 +1393,28 @@ static int msm_fb_register(struct msm_fb_data_type *mfd)
 	     mfd->index, fbi->var.xres, fbi->var.yres, fbi->fix.smem_len);
 
 #ifdef CONFIG_FB_MSM_LOGO
-	if (!load_565rle_image(INIT_IMAGE_FILE)) ;	/* Flip buffer */
+#ifdef CONFIG_LGE_I_DISP_BOOTLOGO
+	if(mfd->panel_info.type == MIPI_VIDEO_PANEL) {
+#ifdef CONFIG_LGE_DISPLAY_MIPI_HITACHI_VIDEO_HD_PT
+		lge_set_qlut();
 #endif
+		msm_fb_blank_sub(FB_BLANK_UNBLANK, mfd->fbi, mfd->op_enable);
+		mdelay(100);
+		msm_fb_set_backlight(mfd, saved_bl_level);
+
+		if (!load_565rle_image(INIT_IMAGE_FILE)) ;	/* Flip buffer */
+	}
+#else
+	if (!load_565rle_image(INIT_IMAGE_FILE)) ;	/* Flip buffer */
+#endif /*CONFIG_LGE_I_DISP_BOOTLOGO*/
+#endif
+
 	ret = 0;
+
+#if defined(CONFIG_LGE_DISPLAY_MIPI_LGIT_VIDEO_HD_PT) || defined(CONFIG_LGE_DISPLAY_MIPI_HITACHI_VIDEO_HD_PT)
+	if(mfd->panel_info.type == MIPI_VIDEO_PANEL)
+		local_mfd = mfd;
+#endif
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	if (mfd->panel_info.type != DTV_PANEL) {
@@ -1396,6 +1552,10 @@ static int msm_fb_register(struct msm_fb_data_type *mfd)
 	}
 #endif /* MSM_FB_ENABLE_DBGFS */
 
+#if defined(CONFIG_LGE_SHOW_FB_BOOTLOGO)
+	if (!lge_reset_flag || !lge_boot_flag)
+		schedule_delayed_work(&boot_logo_work_struct, msecs_to_jiffies(100));
+#endif
 	return ret;
 }
 
@@ -1432,6 +1592,13 @@ static int msm_fb_release(struct fb_info *info, int user)
 {
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
 	int ret = 0;
+
+#ifdef CONFIG_LGE_I_DISP_BOOTLOGO
+	if(mfd->index == 0 && boot_mode) {
+		boot_mode = 0;
+		return 0;
+	}
+#endif
 
 	if (!mfd->ref_cnt) {
 		MSM_FB_INFO("msm_fb_release: try to close unopened fb %d!\n",
@@ -3130,6 +3297,14 @@ static int msm_fb_ioctl(struct fb_info *info, unsigned int cmd,
 				__func__);
 			return ret;
 		}
+
+#ifdef CONFIG_LGE_BROADCAST_TDMB
+		if(csc_matrix.id == -1) {
+			memcpy(mdp_csc_convert[1].csc_mv, csc_matrix.csc_mv, sizeof(csc_matrix.csc_mv));
+			break;
+		}
+#endif /* CONFIG_LGE_BROADCAST */
+	
 		down(&msm_fb_ioctl_ppp_sem);
 		msmfb_set_color_conv(&csc_matrix);
 		up(&msm_fb_ioctl_ppp_sem);
@@ -3409,7 +3584,7 @@ struct platform_device *msm_fb_add_device(struct platform_device *pdev)
 		if (hdmi_prim_display)
 			pdata->panel_info.fb_num = 2;
 		else
-			pdata->panel_info.fb_num = 1;
+			pdata->panel_info.fb_num = 2; //1;
 	}
 	else
 		pdata->panel_info.fb_num = MSM_FB_NUM;
@@ -3525,5 +3700,32 @@ int __init msm_fb_init(void)
 
 	return 0;
 }
+
+#ifdef CONFIG_LGE_DISPLAY_MIPI_HITACHI_VIDEO_HD_PT
+int lge_set_qlut(void)
+{
+	struct fb_cmap cmap;
+	int ret = 0;
+
+	cmap.start	= 0;
+	cmap.len	= 256;
+	cmap.transp	= 0;
+	cmap.red	= NULL;
+	cmap.green	= NULL;
+	cmap.blue	= NULL;
+
+	mutex_lock(&msm_fb_ioctl_lut_sem);
+		g_qlut_change_by_kernel = 1;
+		ret = msm_fb_set_lut(&cmap, fbi_list[0]);
+		g_qlut_change_by_kernel = 0;
+	mutex_unlock(&msm_fb_ioctl_lut_sem);
+
+	if(ret)
+		printk(KERN_ERR "lge_set_initial_lut faild : %d\n", ret);
+
+	return ret;
+}
+EXPORT_SYMBOL(lge_set_qlut);
+#endif
 
 module_init(msm_fb_init);

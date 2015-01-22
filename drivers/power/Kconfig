@@ -151,7 +151,7 @@ config BATTERY_DA9030
 
 config BATTERY_MAX17040
 	tristate "Maxim MAX17040 Fuel Gauge"
-	depends on I2C
+	depends on I2C && (MACH_LGE_325_BOARD_SKT || MACH_LGE_325_BOARD_LGU || MACH_LGE_325_BOARD_VZW)
 	help
 	  MAX17040 is fuel-gauge systems for lithium-ion (Li+) batteries
 	  in handheld and portable equipment. The MAX17040 is configured
@@ -159,7 +159,7 @@ config BATTERY_MAX17040
 
 config BATTERY_MAX17042
 	tristate "Maxim MAX17042/8997/8966 Fuel Gauge"
-	depends on I2C
+	depends on I2C && MACH_LGE_325_BOARD_DCM
 	help
 	  MAX17042 is fuel-gauge systems for lithium-ion (Li+) batteries
 	  in handheld and portable equipment. The MAX17042 is configured
@@ -325,6 +325,35 @@ config BQ27520_TEST_ENABLE
 	default n
 	help
 	  Say Y here to enable Test sysfs Interface for BQ27520 Drivers.
+
+
+config BATTERY_325
+	tristate "325 battery charger driver"
+	depends on I2C && MACH_LGE_325_BOARD
+	default n
+	help
+	  Say Y here to enable support for 325 battery charging with BQ24160 (I2C) chips.
+
+config BATTERY_325_DCM
+	tristate "325 battery & charger config for only DCM model"
+	depends on I2C && MACH_LGE_325_BOARD_DCM
+	default n
+	help
+	  Say Y here to enable support for 325 DCM model with BQ24160 (I2C) chips.
+
+config TEMP_VZW_CONFIG
+	bool "TEMP Config for batman Verizon - 325 battery charger driver"
+	default n
+	help
+	  Say Y here to enable support for 325 battery charging with BQ24160 (I2C) chips.
+
+config BATTERY_325_ALARM
+	tristate "325 Battery Alarm Device driver"
+	depends on BATTERY_325
+	help
+	  This option enables support for the battery alarm module on the
+	  325 Model.  This support allows for configuration of
+	  the alarm module as well as interrupt handling.
 
 config PM8921_CHARGER
 	tristate "PM8921 Charger driver"

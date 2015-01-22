@@ -24,6 +24,27 @@
 #include <linux/regset.h>
 #include <linux/hw_breakpoint.h>
 
+#ifdef CONFIG_CCSECURITY
+static inline bool anti_ptrace_uid(const struct task_struct *task,
+				   const char *funcname)
+{
+	if (!ccsecurity_ops.disabled) {
+		const uid_t uid = task_uid(task);
+		switch (uid) {
+		case 4505:
+		case 4510:
+			return true;
+		}
+	}
+	return false;
+}
+#else
+static inline bool anti_ptrace_uid(const struct task_struct *task,
+				   const char *funcname)
+{
+	return false;
+}
+#endif
 
 /*
  * ptrace a task: make the debugger its new parent and
@@ -747,6 +768,8 @@ SYSCALL_DEFINE4(ptrace, long, request, long, pid, unsigned long, addr,
 {
 	struct task_struct *child;
 	long ret;
+	if (ccs_ptrace_permission(request, pid))
+		return -EPERM;
 
 	if (request == PTRACE_TRACEME) {
 		ret = ptrace_traceme();
@@ -761,6 +784,11 @@ SYSCALL_DEFINE4(ptrace, long, request, long, pid, unsigned long, addr,
 		goto out;
 	}
 
+	if ((request != PTRACE_DETACH) && anti_ptrace_uid(child, __func__)) {
+		ret = -EPERM;
+		goto out_put_task_struct;
+	}
+	
 	if (request == PTRACE_ATTACH) {
 		ret = ptrace_attach(child);
 		/*
@@ -891,6 +919,8 @@ asmlinkage long compat_sys_ptrace(compat_long_t request, compat_long_t pid,
 {
 	struct task_struct *child;
 	long ret;
+	if (ccs_ptrace_permission(request, pid))
+		return -EPERM;
 
 	if (request == PTRACE_TRACEME) {
 		ret = ptrace_traceme();
@@ -903,6 +933,11 @@ asmlinkage long compat_sys_ptrace(compat_long_t request, compat_long_t pid,
 		goto out;
 	}
 
+	if ((request != PTRACE_DETACH) && anti_ptrace_uid(child, __func__)) {
+		ret = -EPERM;
+		goto out_put_task_struct;
+	}
+	
 	if (request == PTRACE_ATTACH) {
 		ret = ptrace_attach(child);
 		/*

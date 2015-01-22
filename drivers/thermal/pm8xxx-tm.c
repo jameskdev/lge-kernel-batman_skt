@@ -32,6 +32,11 @@
 #include <linux/mfd/pm8xxx/pm8xxx-adc.h>
 #include <linux/msm_adc.h>
 
+#if defined(CONFIG_MACH_LGE_325_BOARD_SKT) || defined(CONFIG_MACH_LGE_325_BOARD_LGU)
+#include <linux/kernel.h>
+#endif
+
+
 /* Register TEMP_ALARM_CTRL bits */
 #define	TEMP_ALARM_CTRL_ST3_SD		0x80
 #define	TEMP_ALARM_CTRL_ST2_SD		0x40
@@ -81,6 +86,11 @@ enum pmic_thermal_override_mode {
 	SOFTWARE_OVERRIDE_DISABLED = 0,
 	SOFTWARE_OVERRIDE_ENABLED,
 };
+
+#if defined(CONFIG_MACH_LGE_325_BOARD_SKT) || defined(CONFIG_MACH_LGE_325_BOARD_LGU)
+extern u8 pmic_die_temp_range;
+#endif
+
 
 static inline int pm8xxx_tm_read_ctrl(struct pm8xxx_tm_chip *chip, u8 *reg)
 {
@@ -227,6 +237,13 @@ static int pm8xxx_tz_get_temp_no_adc(struct thermal_zone_device *thermal,
 	return 0;
 }
 
+#ifdef CONFIG_LGE_PM
+#define MSM_CHARGER_GAUGE_MISSING_TEMP_ADC 1000
+#define MSM_CHARGER_GAUGE_MISSING_TEMP       35
+#define MSM_PMIC_ADC_READ_TIMEOUT          3000
+extern int32_t pm8058_xoadc_clear_recentQ(void);
+#endif
+
 static int pm8xxx_tz_get_temp_pm8058_adc(struct thermal_zone_device *thermal,
 			      unsigned long *temp)
 {
@@ -236,6 +253,9 @@ static int pm8xxx_tz_get_temp_pm8058_adc(struct thermal_zone_device *thermal,
 		.physical = 0lu,
 	};
 	int rc;
+#ifdef CONFIG_LGE_PM
+    int wait_ret;
+#endif
 
 	if (!chip || !temp)
 		return -EINVAL;
@@ -249,7 +269,16 @@ static int pm8xxx_tz_get_temp_pm8058_adc(struct thermal_zone_device *thermal,
 		return rc;
 	}
 
+#ifdef CONFIG_LGE_PM
+    wait_ret = wait_for_completion_timeout(&wait, msecs_to_jiffies(MSM_PMIC_ADC_READ_TIMEOUT));
+    if(wait_ret <= 0)
+    {
+		printk(KERN_ERR "===%s: failed to adc wait for completion!===\n",__func__);
+        goto sanity_out;
+    }
+#else
 	wait_for_completion(&wait);
+#endif
 
 	rc = adc_channel_read_result(chip->adc_handle, &adc_result);
 	if (rc < 0) {
@@ -261,7 +290,33 @@ static int pm8xxx_tz_get_temp_pm8058_adc(struct thermal_zone_device *thermal,
 	*temp = adc_result.physical;
 	chip->temp = adc_result.physical;
 
+#if defined(CONFIG_MACH_LGE_325_BOARD_SKT) || defined(CONFIG_MACH_LGE_325_BOARD_LGU)
+	if (chip->temp > 46000)
+	{
+		printk("%s: pmic_die_temp = %ld  temp_range = %d \n", __func__, *temp, pmic_die_temp_range);
+		pmic_die_temp_range = 3;
+	}
+	else if  (chip->temp > 44000)
+		pmic_die_temp_range = 2;
+	else if  (chip->temp > 39000)
+		pmic_die_temp_range = 1;
+	else
+		pmic_die_temp_range = 0;
+#endif
+
 	return 0;
+
+#ifdef CONFIG_LGE_PM
+sanity_out:
+
+    pm8058_xoadc_clear_recentQ();
+
+	*temp = MSM_CHARGER_GAUGE_MISSING_TEMP;
+	chip->temp = MSM_CHARGER_GAUGE_MISSING_TEMP;
+    
+    printk(KERN_ERR "============== batt temp adc read fail so default temp ===============\n");
+    return 0;
+#endif    
 }
 
 static int pm8xxx_tz_get_temp_pm8xxx_adc(struct thermal_zone_device *thermal,

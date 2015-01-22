@@ -622,6 +622,13 @@ static size_t log_prefix(const char *p, unsigned int *level, char *special)
 	if (p[2] == '>') {
 		/* usual single digit level number or special char */
 		switch (p[1]) {
+#ifdef CONFIG_MACH_LGE_325_BOARD_VZW
+#ifdef CONFIG_LGE_LOG_SERVICE
+        case 'B':   /* boot */
+        case 'W':   /* wakeup */
+        case 'S':   /* start logging */
+#endif
+#endif
 		case '0' ... '7':
 			lev = p[1] - '0';
 			break;
@@ -926,6 +933,9 @@ asmlinkage int vprintk(const char *fmt, va_list args)
 
 
 	p = printk_buf;
+#ifdef CONFIG_LGE_HANDLE_PANIC
+	store_crash_log(p);
+#endif
 
 	/* Read log level and handle special printk prefix */
 	plen = log_prefix(p, &current_log_level, &special);
@@ -973,6 +983,21 @@ asmlinkage int vprintk(const char *fmt, va_list args)
 				/* Add the current time stamp */
 				char tbuf[50], *tp;
 				unsigned tlen;
+// LGE_BSP_CAMERA_S::jungki.kim@lge.com  2012-04-10  Transplant local time to kernel referred [F100L][Common] print local time on kernel message. (referred from express_svlte)
+// http://165.243.137.64:8100/Cayman_LGU/#change,5547
+#if defined(CONFIG_MACH_LGE_325_BOARD_SKT)||defined(CONFIG_MACH_LGE_325_BOARD_DCM)||defined(CONFIG_MACH_LGE_325_BOARD_LGU)
+				struct timespec time;
+				struct tm tmresult;
+				time = __current_kernel_time();
+				time_to_tm(time.tv_sec, sys_tz.tz_minuteswest * 60 * (-1), &tmresult);
+				tlen = sprintf(tbuf, "[%02d-%02d %02d:%02d:%02d.%03lu] ",
+											tmresult.tm_mon + 1,
+											tmresult.tm_mday,
+											tmresult.tm_hour,
+											tmresult.tm_min,
+											tmresult.tm_sec,
+											(unsigned long) time.tv_nsec / 1000000);
+#else
 				unsigned long long t;
 				unsigned long nanosec_rem;
 
@@ -981,6 +1006,8 @@ asmlinkage int vprintk(const char *fmt, va_list args)
 				tlen = sprintf(tbuf, "[%5lu.%06lu] ",
 						(unsigned long) t,
 						nanosec_rem / 1000);
+#endif
+// LGE_BSP_CAMERA_E::jungki.kim@lge.com  2012-04-10  Transplant local time to kernel referred [F100L][Common] print local time on kernel message. (referred from express_svlte)
 
 				for (tp = tbuf; tp < tbuf + tlen; tp++)
 					emit_log_char(*tp);
@@ -1000,7 +1027,7 @@ asmlinkage int vprintk(const char *fmt, va_list args)
 	 * Try to acquire and then immediately release the
 	 * console semaphore. The release will do all the
 	 * actual magic (print out buffers, wake up klogd,
-	 * etc). 
+	 * etc).
 	 *
 	 * The console_trylock_for_printk() function
 	 * will release 'logbuf_lock' regardless of whether it
