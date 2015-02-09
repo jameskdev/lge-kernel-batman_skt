@@ -207,7 +207,7 @@ static int mipi_hitachi_lcd_on(struct platform_device *pdev)
 	printk(KERN_INFO"%s: mipi hitachi lcd on started \n", __func__);
 	mipi_hitachi_lcd_reset();
 	//mipi_dsi_op_mode_config(DSI_CMD_MODE);
-	mipi_dsi_cmds_tx(mfd, &hitachi_tx_buf, hitachi_power_on_set, ARRAY_SIZE(hitachi_power_on_set));
+	mipi_dsi_cmds_tx(&hitachi_tx_buf, hitachi_power_on_set, ARRAY_SIZE(hitachi_power_on_set));
 
 	return 0;
 }
@@ -224,7 +224,7 @@ static int mipi_hitachi_lcd_off(struct platform_device *pdev)
 	printk(KERN_INFO"%s: mipi hitachi lcd off started \n", __func__);
 
 	mipi_dsi_op_mode_config(DSI_CMD_MODE);
-	mipi_dsi_cmds_tx(mfd, &hitachi_tx_buf, hitachi_display_off_deep_standby_set, ARRAY_SIZE(hitachi_display_off_deep_standby_set));
+	mipi_dsi_cmds_tx(&hitachi_tx_buf, hitachi_display_off_deep_standby_set, ARRAY_SIZE(hitachi_display_off_deep_standby_set));
 	gpio_tlmm_config(GPIO_CFG(LCD_RESET_N, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),GPIO_CFG_ENABLE);
 	gpio_set_value(LCD_RESET_N,0);
 
@@ -251,7 +251,7 @@ ssize_t msm_fb_hitachi_store_onoff(struct device *dev, struct device_attribute *
 	sscanf(buf, "%d", &onoff);
 	if(onoff) {
 		//mipi_dsi_op_mode_config(DSI_CMD_MODE);
-		//mipi_dsi_cmds_tx(local_mfd, &hitachi_tx_buf, hitachi_power_on_set, ARRAY_SIZE(hitachi_power_on_set));
+		//mipi_dsi_cmds_tx(&hitachi_tx_buf, hitachi_power_on_set, ARRAY_SIZE(hitachi_power_on_set));
 	}
 	else {
 		printk("%s: buf %s, off : %d\n", __func__,buf, onoff);
