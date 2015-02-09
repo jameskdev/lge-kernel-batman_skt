@@ -97,7 +97,7 @@ static int mipi_dsi_off(struct platform_device *pdev)
 		/* video mode, wait until fifo cleaned */
 		mipi_dsi_controller_cfg(0);
 	}
-	
+
 	/*
 	 * Desctiption: change to DSI_CMD_MODE since it needed to
 	 * tx DCS dsiplay off comamnd to panel
@@ -174,6 +174,7 @@ static int mipi_dsi_on(struct platform_device *pdev)
 	clk_rate = mfd->fbi->var.pixclock;
 	clk_rate = min(clk_rate, mfd->panel_info.clk_max);
 
+#ifndef CONFIG_MACH_LGE_I_BOARD
 	mipi_dsi_phy_ctrl(1);
 
 	if (mdp_rev == MDP_REV_42 && mipi_dsi_pdata)
@@ -183,6 +184,7 @@ static int mipi_dsi_on(struct platform_device *pdev)
 
 	mipi_dsi_clk_enable();
 
+#endif
 	MIPI_OUTP(MIPI_DSI_BASE + 0x114, 1);
 	MIPI_OUTP(MIPI_DSI_BASE + 0x114, 0);
 
@@ -195,6 +197,17 @@ static int mipi_dsi_on(struct platform_device *pdev)
 	width = mfd->panel_info.xres;
 	height = mfd->panel_info.yres;
 
+#ifdef CONFIG_MACH_LGE_I_BOARD
+	mipi_dsi_phy_ctrl(1);
+
+	if (mdp_rev == MDP_REV_42 && mipi_dsi_pdata)
+		target_type = mipi_dsi_pdata->target_type;
+
+	mipi_dsi_phy_init(0, &(mfd->panel_info), target_type);
+
+	mipi_dsi_clk_enable();
+
+#endif
 	mipi  = &mfd->panel_info.mipi;
 	if (mfd->panel_info.type == MIPI_VIDEO_PANEL) {
 		dummy_xres = mfd->panel_info.lcdc.xres_pad;
