@@ -62,6 +62,9 @@ static int saved_bl_level = 0x7F;
 static int saved_bl_level = 0x33;
 #endif
 static int boot_mode = 1; // first boot condition
+#ifdef CONFIG_LGE_SHOW_FB_BOOTLOGO
+const char LG_bootlogo_progress[] = "/bootimages/boot_logo_";
+#endif
 #endif
 
 static int unset_bl_level = 0;
@@ -1130,7 +1133,7 @@ static void boot_logo_animate_work(struct work_struct *work)
 		}
 		
 		if (update_image)
-			load_565rle_image(image_name);
+			load_565rle_image(image_name, bf_supported);
 
 		msleep(83);
 	}

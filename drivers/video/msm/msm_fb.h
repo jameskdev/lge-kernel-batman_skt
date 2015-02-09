@@ -224,7 +224,6 @@ int msm_fb_check_frame_rate(struct msm_fb_data_type *mfd,
 extern unsigned int lge_reset_flag;
 extern unsigned int lge_boot_flag;
 #define NUM_OF_BOOT_LOGO_IMAGES 32
-const char LG_bootlogo_progress[] = "/bootimages/boot_logo_";
 #endif	//LGE_SHOW_FB_BOOTLOGO
 #else	//VZW
 #define INIT_IMAGE_FILE "/bootimages/boot_logo_00000.rle"
