@@ -361,6 +361,7 @@ static void mdp4_dsi_video_wait4dmap(int cndx)
 }
 
 
+#if 0
 static void mdp4_dsi_video_wait4dmap_done(int cndx)
 {
 	unsigned long flags;
@@ -378,6 +379,7 @@ static void mdp4_dsi_video_wait4dmap_done(int cndx)
 	spin_unlock_irqrestore(&vctrl->spin_lock, flags);
 	mdp4_dsi_video_wait4dmap(cndx);
 }
+#endif
 
 
 static void mdp4_dsi_video_wait4ov(int cndx)
@@ -703,7 +705,7 @@ int mdp4_dsi_video_on(struct platform_device *pdev)
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
 #ifdef CONFIG_MACH_LGE_325_BOARD
 	mdp4_overlay_reg_flush(pipe, 1);
-	mdp4_mixer_stage_up(pipe);
+	mdp4_mixer_stage_up(pipe, 0);
 	mdp4_overlay_dsi_video_start();
 #endif
 
