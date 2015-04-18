@@ -512,7 +512,7 @@ skip_this_cpu_bypass:
 	return count;
 }
 
-static void dbs_boost()
+static void dbs_boost(void)
 {
 	int i;
 
@@ -838,8 +838,6 @@ bail_acq_sema_failed:
 static void dbs_input_event(struct input_handle *handle, unsigned int type,
 		unsigned int code, int value)
 {
-	int i;
-
 #ifdef CONFIG_LGE_PM_CURRENT_CONSUMPTION_FIX 
 	if(!strcmp((char*)(handle->dev->name), "accelerometer") || !strcmp((char*)(handle->dev->name), "proximity") || 
 	!strcmp((char*)(handle->dev->name), "magnetic_field") || !strcmp((char*)(handle->dev->name), "gyroscope")||
