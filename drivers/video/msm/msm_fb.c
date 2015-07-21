@@ -53,6 +53,7 @@
 #include "mdp4.h"
 
 #ifdef CONFIG_LGE_DISPLAY_MIPI_HITACHI_VIDEO_HD_PT
+#define LGE_325_FIX_FB_LOGO
 extern int mdp_write_kcal_reg(const char* buf); //kcal for 325
 extern int lge_set_qlut(void);
 int g_qlut_change_by_kernel;
@@ -1209,6 +1210,16 @@ static void boot_logo_animate_work(struct work_struct *work)
 	int frame_index = 0;
 	char image_name[255];
 	unsigned int update_image = 0;
+#ifdef LGE_325_FIX_FB_LOGO
+	struct fb_info *info;
+
+	info = registered_fb[0];
+	if (!info) {
+		printk(KERN_WARNING "%s: Can not access framebuffer\n",
+			__func__);
+		return;
+	}
+#endif
 
 	for(frame_index = 0 ; frame_index < NUM_OF_BOOT_LOGO_IMAGES; frame_index++) {
 		/*
@@ -1238,6 +1249,9 @@ static void boot_logo_animate_work(struct work_struct *work)
 
 		msleep(83);
 	}
+#ifdef LGE_325_FIX_FB_LOGO
+	memset((void *)info->screen_base, 0x00, info->fix.smem_len);
+#endif
 }
 #endif
 
